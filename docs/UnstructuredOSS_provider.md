@@ -171,9 +171,10 @@ The provider uses a simplified coordinate system for positioning elements:
    - No longer uses the non-existent `open()` method
 
 6. **Visualization Error**: Fixed in current implementation
-   - Visualization is disabled by default to avoid "Cannot visualize document without images" errors
+   - Visualization is now properly handled with graceful fallbacks
    - When ground truth page images are available, they are used for visualization
-   - When no images are available, visualization is automatically disabled with a warning
+   - When no images are available, visualization is skipped with a warning instead of failing
+   - The provider respects the `--do-visualization` CLI flag but handles missing images gracefully
 
 ### Debug Mode
 
@@ -217,10 +218,11 @@ provider = UnstructuredOSSPredictionProvider(
 )
 ```
 
-**Note**: Visualization is disabled by default for the Unstructured-OSS provider because:
-- It may not always have access to proper page images
-- The simplified document structure may not support full visualization
-- When enabled, it will use ground truth page images if available, otherwise disable automatically
+**Note**: Visualization is now properly handled for the Unstructured-OSS provider:
+- It respects the `--do-visualization` CLI flag
+- When ground truth page images are available, they are used for visualization
+- When no images are available, visualization is skipped gracefully with warnings
+- The provider continues processing even if visualization fails
 
 ## Integration with Evaluation Pipeline
 

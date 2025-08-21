@@ -322,3 +322,37 @@ class UnstructuredOSSPredictionProvider(BasePredictionProvider):
             
         except Exception as e:
             _log.warning(f"Error processing element {type(element).__name__}: {e}")
+
+    def visualize_results(
+        self, prediction_record: DatasetRecordWithPrediction, target_dataset_dir: Path
+    ) -> None:
+        """
+        Override visualization to handle cases where images are not available.
+        
+        Args:
+            prediction_record: Record with predictions
+            target_dataset_dir: Directory to save visualizations
+        """
+        try:
+            # Check if the predicted document has proper images for visualization
+            if prediction_record.predicted_doc is None:
+                _log.warning(f"Skipping visualization for {prediction_record.doc_id}: no predicted document")
+                return
+            
+            # Check if any page has an image
+            has_images = False
+            for page in prediction_record.predicted_doc.pages.values():
+                if page.image is not None:
+                    has_images = True
+                    break
+            
+            if not has_images:
+                _log.warning(f"Skipping visualization for {prediction_record.doc_id}: no page images available")
+                return
+            
+            # If we have images, proceed with normal visualization
+            super().visualize_results(prediction_record, target_dataset_dir)
+            
+        except Exception as e:
+            _log.warning(f"Visualization failed for {prediction_record.doc_id}: {e}")
+            # Don't raise the exception - just log and continue

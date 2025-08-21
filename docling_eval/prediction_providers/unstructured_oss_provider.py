@@ -323,6 +323,55 @@ class UnstructuredOSSPredictionProvider(BasePredictionProvider):
         except Exception as e:
             _log.warning(f"Error processing element {type(element).__name__}: {e}")
 
+    def create_prediction_dataset(
+        self,
+        name: str,
+        gt_dataset_dir: Path,
+        target_dataset_dir: Path,
+        split: str = "test",
+        begin_index: int = 0,
+        end_index: int = -1,
+        chunk_size: int = 80,
+    ) -> None:
+        """
+        Override create_prediction_dataset to handle visualization errors gracefully.
+        """
+        # Temporarily disable visualization if it's enabled but we might not have images
+        original_visualization = self.do_visualization
+        if self.do_visualization:
+            _log.info("Unstructured-OSS provider: Visualization may be skipped if page images are not available")
+        
+        try:
+            # Call the parent method
+            super().create_prediction_dataset(
+                name=name,
+                gt_dataset_dir=gt_dataset_dir,
+                target_dataset_dir=target_dataset_dir,
+                split=split,
+                begin_index=begin_index,
+                end_index=end_index,
+                chunk_size=chunk_size,
+            )
+        except RuntimeError as e:
+            if "Cannot visualize document without images" in str(e):
+                _log.warning("Visualization failed due to missing images. Disabling visualization and retrying...")
+                self.do_visualization = False
+                # Retry without visualization
+                super().create_prediction_dataset(
+                    name=name,
+                    gt_dataset_dir=gt_dataset_dir,
+                    target_dataset_dir=target_dataset_dir,
+                    split=split,
+                    begin_index=begin_index,
+                    end_index=end_index,
+                    chunk_size=chunk_size,
+                )
+            else:
+                raise
+        finally:
+            # Restore original visualization setting
+            self.do_visualization = original_visualization
+
     def visualize_results(
         self, prediction_record: DatasetRecordWithPrediction, target_dataset_dir: Path
     ) -> None:

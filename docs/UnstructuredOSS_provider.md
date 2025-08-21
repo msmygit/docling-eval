@@ -171,10 +171,11 @@ The provider uses a simplified coordinate system for positioning elements:
    - No longer uses the non-existent `open()` method
 
 6. **Visualization Error**: Fixed in current implementation
-   - Visualization is now properly handled with graceful fallbacks
-   - When ground truth page images are available, they are used for visualization
-   - When no images are available, visualization is skipped with a warning instead of failing
-   - The provider respects the `--do-visualization` CLI flag but handles missing images gracefully
+   - **Robust Error Handling**: The provider automatically detects and handles visualization errors
+   - **Automatic Retry**: If visualization fails due to missing images, it automatically retries without visualization
+   - **Smart Image Usage**: When ground truth page images are available, they are used for visualization
+   - **Graceful Fallback**: When no images are available, visualization is skipped with informative warnings
+   - **CLI Compatibility**: The provider respects the `--do-visualization` CLI flag but handles errors gracefully
 
 ### Debug Mode
 
@@ -218,11 +219,12 @@ provider = UnstructuredOSSPredictionProvider(
 )
 ```
 
-**Note**: Visualization is now properly handled for the Unstructured-OSS provider:
-- It respects the `--do-visualization` CLI flag
-- When ground truth page images are available, they are used for visualization
-- When no images are available, visualization is skipped gracefully with warnings
-- The provider continues processing even if visualization fails
+**Note**: Visualization is now robustly handled for the Unstructured-OSS provider:
+- **Automatic Error Recovery**: If visualization fails due to missing images, the provider automatically retries without visualization
+- **Smart Detection**: Automatically detects when page images are not available
+- **Informative Logging**: Provides clear warnings about visualization issues
+- **Seamless Processing**: Continues processing even when visualization encounters problems
+- **CLI Integration**: Fully compatible with the `--do-visualization` flag
 
 ## Integration with Evaluation Pipeline
 

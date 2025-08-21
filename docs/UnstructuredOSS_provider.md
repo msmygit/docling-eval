@@ -166,6 +166,10 @@ The provider uses a simplified coordinate system for positioning elements:
    - The simplified coordinate system may not work for all documents
    - Consider using other providers for layout-critical evaluations
 
+5. **DocumentStream Access Error**: Fixed in current implementation
+   - The provider now correctly accesses `document_stream.stream.read()`
+   - No longer uses the non-existent `open()` method
+
 ### Debug Mode
 
 Enable debug logging to troubleshoot issues:

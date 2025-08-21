@@ -147,8 +147,8 @@ class UnstructuredOSSPredictionProvider(BasePredictionProvider):
             # Create a temporary file for processing
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
                 # Write the document stream to the temporary file
-                with document_stream.open() as f:
-                    temp_file.write(f.read())
+                # Access the BytesIO stream directly
+                temp_file.write(document_stream.stream.read())
                 temp_file_path = temp_file.name
             
             try:

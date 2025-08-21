@@ -31,8 +31,12 @@ class TestUtils:
     @staticmethod
     def create_mock_document_stream(content: bytes = b"test content") -> Mock:
         mock_stream = Mock()
-        mock_stream.open.return_value.__enter__ = Mock(return_value=Mock(read=Mock(return_value=content)))
-        mock_stream.open.return_value.__exit__ = Mock(return_value=None)
+        # Create a mock BytesIO stream
+        mock_bytesio = Mock()
+        mock_bytesio.read.return_value = content
+        mock_stream.stream = mock_bytesio
+        # Also set the name attribute
+        mock_stream.name = "test.pdf"
         return mock_stream
     
     @staticmethod

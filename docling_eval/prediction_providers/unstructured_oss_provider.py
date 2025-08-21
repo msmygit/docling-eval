@@ -187,11 +187,40 @@ class UnstructuredOSSPredictionProvider(BasePredictionProvider):
         # Initialize DoclingDocument
         doc = DoclingDocument(name=record.doc_id)
         
-        # Create a single page for all elements (simplified approach)
-        page_item = PageItem(
-            page_no=1,
-            size=Size(width=1000.0, height=1000.0),
-        )
+        # Try to get page image from ground truth if available
+        page_image = None
+        if hasattr(record, 'ground_truth_page_images') and record.ground_truth_page_images:
+            page_image = record.ground_truth_page_images[0]  # Use first page image
+        
+        # Create a page with proper image reference for visualization
+        if page_image:
+            # Use the ground truth page image
+            from docling_eval.utils.utils import from_pil_to_base64uri
+            from docling_core.types.doc.page import ImageRef
+            
+            image_ref = ImageRef(
+                mimetype="image/png",
+                dpi=72,
+                size=Size(width=float(page_image.width), height=float(page_image.height)),
+                uri=from_pil_to_base64uri(page_image),
+            )
+            page_item = PageItem(
+                page_no=1,
+                size=Size(width=float(page_image.width), height=float(page_image.height)),
+                image=image_ref,
+            )
+        else:
+            # Create a placeholder page without image (will skip visualization)
+            # If visualization is enabled but no image is available, disable it
+            if self.do_visualization:
+                _log.warning(f"Visualization requested for {record.doc_id} but no page image available. Disabling visualization.")
+                self.do_visualization = False
+            
+            page_item = PageItem(
+                page_no=1,
+                size=Size(width=1000.0, height=1000.0),
+            )
+        
         doc.pages[1] = page_item
         
         # Process elements and convert to Docling format

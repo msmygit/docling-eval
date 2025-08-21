@@ -170,6 +170,11 @@ The provider uses a simplified coordinate system for positioning elements:
    - The provider now correctly accesses `document_stream.stream.read()`
    - No longer uses the non-existent `open()` method
 
+6. **Visualization Error**: Fixed in current implementation
+   - Visualization is disabled by default to avoid "Cannot visualize document without images" errors
+   - When ground truth page images are available, they are used for visualization
+   - When no images are available, visualization is automatically disabled with a warning
+
 ### Debug Mode
 
 Enable debug logging to troubleshoot issues:
@@ -207,10 +212,15 @@ print(f"Elements found: {len(result.predicted_doc.pages[0].items)}")
 provider = UnstructuredOSSPredictionProvider(
     strategy="accurate",
     include_metadata=False,
-    do_visualization=True,
+    do_visualization=False,  # Disabled by default to avoid visualization errors
     ignore_missing_predictions=False
 )
 ```
+
+**Note**: Visualization is disabled by default for the Unstructured-OSS provider because:
+- It may not always have access to proper page images
+- The simplified document structure may not support full visualization
+- When enabled, it will use ground truth page images if available, otherwise disable automatically
 
 ## Integration with Evaluation Pipeline
 

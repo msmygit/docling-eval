@@ -361,7 +361,7 @@ def get_prediction_provider(
     
     elif provider_type == PredictionProviderType.UNSTRUCTURED_OSS:
         return provider_class(
-            do_visualization=do_visualization,
+            do_visualization=False,  # Disable visualization by default since images may not be available
             ignore_missing_predictions=True,
             include_metadata=True,
             strategy="fast",  # Can be made configurable via CLI options

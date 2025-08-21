@@ -21,7 +21,16 @@ Evaluate [Docling](https://github.com/docling-project/docling) on various datase
 
 ## Features
 
-Evaluate docling on various datasets. You can use the cli
+Evaluate docling on various datasets with multiple prediction providers including:
+- **Docling**: Full document processing pipeline
+- **SmolDocling**: Lightweight VLM-based processing
+- **TableFormer**: Specialized table structure detection
+- **AWS Textract**: Amazon's document analysis service
+- **Azure Document Intelligence**: Microsoft's document processing
+- **Google Document AI**: Google's document understanding
+- **Unstructured-OSS**: Open-source document processing library
+
+You can use the cli
 
 ```shell
 terminal %> docling-eval --help

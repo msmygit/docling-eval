@@ -103,19 +103,9 @@ from docling_eval.evaluators.timings_evaluator import (
     DatasetTimingsEvaluation,
     TimingsEvaluator,
 )
-from docling_eval.prediction_providers.aws_prediction_provider import (
-    AWSTextractPredictionProvider,
-)
-from docling_eval.prediction_providers.azure_prediction_provider import (
-    AzureDocIntelligencePredictionProvider,
-)
-from docling_eval.prediction_providers.docling_provider import DoclingPredictionProvider
-from docling_eval.prediction_providers.file_provider import FilePredictionProvider
-from docling_eval.prediction_providers.google_prediction_provider import (
-    GoogleDocAIPredictionProvider,
-)
-from docling_eval.prediction_providers.tableformer_provider import (
-    TableFormerPredictionProvider,
+from docling_eval.prediction_providers import (
+    get_provider_class,
+    is_provider_supported,
 )
 
 
@@ -324,196 +314,42 @@ def get_prediction_provider(
     docling_layout_create_orphan_clusters: Optional[bool] = None,
     docling_layout_keep_empty_clusters: Optional[bool] = None,
 ):
-    pipeline_options: PaginatedPipelineOptions
     """Get the appropriate prediction provider with default settings."""
-    if (
-        provider_type == PredictionProviderType.DOCLING
-        or provider_type == PredictionProviderType.OCR_DOCLING
-        or provider_type == PredictionProviderType.EasyOCR_DOCLING
-    ):
-        ocr_factory = get_ocr_factory()
-
-        ocr_options: OcrOptions = ocr_factory.create_options(  # type: ignore
-            kind="easyocr",
-        )
-        # Use all CPU cores
-        accelerator_options = AcceleratorOptions(
-            num_threads=multiprocessing.cpu_count(),
-        )
-
-        pipeline_options = PdfPipelineOptions(
-            do_ocr=True,
-            ocr_options=ocr_options,
+    
+    # Check if provider is supported
+    if not is_provider_supported(provider_type):
+        raise ValueError(f"Unsupported prediction provider: {provider_type}")
+    
+    # Get the provider class
+    provider_class = get_provider_class(provider_type)
+    
+    # Handle special cases that require custom configuration
+    if provider_type in [
+        PredictionProviderType.DOCLING,
+        PredictionProviderType.PDF_DOCLING,
+        PredictionProviderType.OCR_DOCLING,
+        PredictionProviderType.MacOCR_DOCLING,
+        PredictionProviderType.EasyOCR_DOCLING,
+        PredictionProviderType.SMOLDOCLING,
+    ]:
+        return _create_docling_provider(
+            provider_type,
+            do_visualization=do_visualization,
             do_table_structure=do_table_structure,
+            artifacts_path=artifacts_path,
+            image_scale_factor=image_scale_factor,
+            docling_layout_model_spec=docling_layout_model_spec,
+            docling_layout_create_orphan_clusters=docling_layout_create_orphan_clusters,
+            docling_layout_keep_empty_clusters=docling_layout_keep_empty_clusters,
         )
-
-        pipeline_options.images_scale = image_scale_factor or 2.0
-        pipeline_options.generate_page_images = True
-        pipeline_options.generate_picture_images = True
-        pipeline_options.generate_parsed_pages = True
-        pipeline_options.accelerator_options = accelerator_options
-
-        # Layout options
-        layout_options: LayoutOptions = LayoutOptions()
-        if docling_layout_model_spec is not None:
-            layout_options.model_spec = docling_layout_model_spec
-        if docling_layout_create_orphan_clusters is not None:
-            layout_options.create_orphan_clusters = (
-                docling_layout_create_orphan_clusters
-            )
-        if docling_layout_keep_empty_clusters is not None:
-            layout_options.keep_empty_clusters = docling_layout_keep_empty_clusters
-        pipeline_options.layout_options = layout_options
-
-        if artifacts_path is not None:
-            pipeline_options.artifacts_path = artifacts_path
-
-        return DoclingPredictionProvider(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
-                InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options),
-            },
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-
-    elif provider_type == PredictionProviderType.MacOCR_DOCLING:
-        ocr_factory = get_ocr_factory()
-
-        ocr_options: OcrOptions = ocr_factory.create_options(  # type: ignore
-            kind="ocrmac",
-        )
-
-        pipeline_options = PdfPipelineOptions(
-            do_ocr=True,
-            ocr_options=ocr_options,
-            do_table_structure=do_table_structure,
-        )
-
-        pipeline_options.images_scale = image_scale_factor or 2.0
-        pipeline_options.generate_page_images = True
-        pipeline_options.generate_picture_images = True
-
-        if artifacts_path is not None:
-            pipeline_options.artifacts_path = artifacts_path
-
-        return DoclingPredictionProvider(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
-                InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options),
-            },
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-
-    elif provider_type == PredictionProviderType.PDF_DOCLING:
-        ocr_factory = get_ocr_factory()
-
-        ocr_options: OcrOptions = ocr_factory.create_options(  # type: ignore
-            kind="easyocr",
-        )
-
-        pdf_pipeline_options = PdfPipelineOptions(
-            do_ocr=False,
-            ocr_options=ocr_options,  # we need to provide OCR options in order to not break the parquet serialization
-            do_table_structure=do_table_structure,
-        )
-
-        pdf_pipeline_options.images_scale = image_scale_factor or 2.0
-        pdf_pipeline_options.generate_page_images = True
-        pdf_pipeline_options.generate_picture_images = True
-
-        ocr_pipeline_options = PdfPipelineOptions(
-            do_ocr=True,
-            ocr_options=ocr_options,  # we need to provide OCR options in order to not break the parquet serialization
-            do_table_structure=do_table_structure,
-        )
-
-        ocr_pipeline_options.images_scale = image_scale_factor or 2.0
-        ocr_pipeline_options.generate_page_images = True
-        ocr_pipeline_options.generate_picture_images = True
-
-        if artifacts_path is not None:
-            pdf_pipeline_options.artifacts_path = artifacts_path
-            ocr_pipeline_options.artifacts_path = artifacts_path
-
-        return DoclingPredictionProvider(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipeline_options),
-                InputFormat.IMAGE: PdfFormatOption(
-                    pipeline_options=ocr_pipeline_options
-                ),
-            },
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-
-    elif provider_type == PredictionProviderType.SMOLDOCLING:
-        pipeline_options = VlmPipelineOptions()
-
-        pipeline_options.images_scale = image_scale_factor or 2.0
-        pipeline_options.generate_page_images = True
-        pipeline_options.generate_picture_images = True
-
-        pipeline_options.vlm_options = smoldocling_vlm_conversion_options
-        if artifacts_path is not None:
-            pipeline_options.artifacts_path = artifacts_path
-
-        if sys.platform == "darwin":
-            try:
-                import mlx_vlm  # type: ignore
-
-                pipeline_options.vlm_options = smoldocling_vlm_mlx_conversion_options
-
-            except ImportError:
-                _log.warning(
-                    "To run SmolDocling faster, please install mlx-vlm:\n"
-                    "pip install mlx-vlm"
-                )
-
-        pdf_format_option = PdfFormatOption(
-            pipeline_cls=VlmPipeline, pipeline_options=pipeline_options
-        )
-
-        format_options: Dict[InputFormat, FormatOption] = {
-            InputFormat.PDF: pdf_format_option,
-            InputFormat.IMAGE: pdf_format_option,
-        }
-
-        return DoclingPredictionProvider(
-            format_options=format_options,
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-
-    elif provider_type == PredictionProviderType.TABLEFORMER:
-        return TableFormerPredictionProvider(
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-    elif provider_type == PredictionProviderType.GOOGLE:
-        return GoogleDocAIPredictionProvider(
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-    elif provider_type == PredictionProviderType.AWS:
-        return AWSTextractPredictionProvider(
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-    elif provider_type == PredictionProviderType.AZURE:
-        return AzureDocIntelligencePredictionProvider(
-            do_visualization=do_visualization,
-            ignore_missing_predictions=True,
-        )
-
+    
     elif provider_type == PredictionProviderType.FILE:
         if file_prediction_format is None:
             raise ValueError("file_prediction_format is required for File provider")
         if file_source_path is None:
             raise ValueError("file_source_path is required for File provider")
 
-        return FilePredictionProvider(
+        return provider_class(
             prediction_format=file_prediction_format,
             source_path=file_source_path,
             do_visualization=do_visualization,
@@ -522,9 +358,131 @@ def get_prediction_provider(
             use_ground_truth_page_images=file_use_ground_truth_images,
             prediction_images_path=file_images_path,
         )
-
+    
+    elif provider_type == PredictionProviderType.UNSTRUCTURED_OSS:
+        return provider_class(
+            do_visualization=do_visualization,
+            ignore_missing_predictions=True,
+            include_metadata=True,
+            strategy="fast",  # Can be made configurable via CLI options
+        )
+    
     else:
-        raise ValueError(f"Unsupported prediction provider: {provider_type}")
+        # Default case for simple providers
+        return provider_class(
+            do_visualization=do_visualization,
+            ignore_missing_predictions=True,
+        )
+
+
+def _create_docling_provider(
+    provider_type: PredictionProviderType,
+    *,
+    do_visualization: bool = True,
+    do_table_structure: bool = True,
+    artifacts_path: Optional[Path] = None,
+    image_scale_factor: Optional[float] = None,
+    docling_layout_model_spec: Optional[LayoutModelConfig] = None,
+    docling_layout_create_orphan_clusters: Optional[bool] = None,
+    docling_layout_keep_empty_clusters: Optional[bool] = None,
+):
+    """Create a Docling provider with the appropriate configuration."""
+    from docling_eval.prediction_providers.docling_provider import DoclingPredictionProvider
+    
+    # Determine OCR type based on provider type
+    ocr_kind = "easyocr"
+    if provider_type == PredictionProviderType.MacOCR_DOCLING:
+        ocr_kind = "ocrmac"
+    
+    # Create OCR options
+    ocr_factory = get_ocr_factory()
+    ocr_options: OcrOptions = ocr_factory.create_options(kind=ocr_kind)
+    
+    # Create accelerator options
+    accelerator_options = AcceleratorOptions(num_threads=multiprocessing.cpu_count())
+    
+    # Create pipeline options
+    if provider_type == PredictionProviderType.SMOLDOCLING:
+        pipeline_options = VlmPipelineOptions()
+        pipeline_options.vlm_options = smoldocling_vlm_conversion_options
+        
+        if sys.platform == "darwin":
+            try:
+                import mlx_vlm  # type: ignore
+                pipeline_options.vlm_options = smoldocling_vlm_mlx_conversion_options
+            except ImportError:
+                _log.warning("To run SmolDocling faster, please install mlx-vlm:\npip install mlx-vlm")
+        
+        pdf_format_option = PdfFormatOption(
+            pipeline_cls=VlmPipeline, pipeline_options=pipeline_options
+        )
+        format_options = {
+            InputFormat.PDF: pdf_format_option,
+            InputFormat.IMAGE: pdf_format_option,
+        }
+    else:
+        # Handle PDF vs OCR pipeline options
+        if provider_type == PredictionProviderType.PDF_DOCLING:
+            pdf_pipeline_options = PdfPipelineOptions(
+                do_ocr=False,
+                ocr_options=ocr_options,
+                do_table_structure=do_table_structure,
+            )
+            ocr_pipeline_options = PdfPipelineOptions(
+                do_ocr=True,
+                ocr_options=ocr_options,
+                do_table_structure=do_table_structure,
+            )
+            
+            # Configure both pipelines
+            for pipeline in [pdf_pipeline_options, ocr_pipeline_options]:
+                pipeline.images_scale = image_scale_factor or 2.0
+                pipeline.generate_page_images = True
+                pipeline.generate_picture_images = True
+                if artifacts_path is not None:
+                    pipeline.artifacts_path = artifacts_path
+            
+            format_options = {
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_pipeline_options),
+                InputFormat.IMAGE: PdfFormatOption(pipeline_options=ocr_pipeline_options),
+            }
+        else:
+            # Standard Docling pipeline
+            pipeline_options = PdfPipelineOptions(
+                do_ocr=True,
+                ocr_options=ocr_options,
+                do_table_structure=do_table_structure,
+            )
+            
+            pipeline_options.images_scale = image_scale_factor or 2.0
+            pipeline_options.generate_page_images = True
+            pipeline_options.generate_picture_images = True
+            pipeline_options.generate_parsed_pages = True
+            pipeline_options.accelerator_options = accelerator_options
+            
+            # Layout options
+            layout_options: LayoutOptions = LayoutOptions()
+            if docling_layout_model_spec is not None:
+                layout_options.model_spec = docling_layout_model_spec
+            if docling_layout_create_orphan_clusters is not None:
+                layout_options.create_orphan_clusters = docling_layout_create_orphan_clusters
+            if docling_layout_keep_empty_clusters is not None:
+                layout_options.keep_empty_clusters = docling_layout_keep_empty_clusters
+            pipeline_options.layout_options = layout_options
+            
+            if artifacts_path is not None:
+                pipeline_options.artifacts_path = artifacts_path
+            
+            format_options = {
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+                InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options),
+            }
+    
+    return DoclingPredictionProvider(
+        format_options=format_options,
+        do_visualization=do_visualization,
+        ignore_missing_predictions=True,
+    )
 
 
 def evaluate(

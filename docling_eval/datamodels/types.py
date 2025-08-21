@@ -136,3 +136,4 @@ class PredictionProviderType(str, Enum):
     AWS = "AWS"
     AZURE = "Azure"
     GOOGLE = "Google"
+    UNSTRUCTURED_OSS = "UnstructuredOSS"

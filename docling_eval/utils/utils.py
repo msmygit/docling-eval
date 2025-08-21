@@ -739,23 +739,17 @@ def modalities_of_prediction_type(
     r"""
     Return a list of EvaluationModality supported by the given prediction_provider_type
     """
-    from docling_eval.prediction_providers.docling_provider import (
-        DoclingPredictionProvider,
-    )
-    from docling_eval.prediction_providers.tableformer_provider import (
-        TableFormerPredictionProvider,
-    )
+    from docling_eval.prediction_providers import get_provider_class, is_provider_supported
 
-    # TODO: Update this map as more prediction providers are implemented
-    prediction_type_class = {
-        PredictionProviderType.DOCLING: DoclingPredictionProvider,
-        PredictionProviderType.TABLEFORMER: TableFormerPredictionProvider,
-    }
-
-    if prediction_provider_type not in prediction_type_class:
+    # Check if provider is supported
+    if not is_provider_supported(prediction_provider_type):
         return None
 
-    prediction_provider_class = prediction_type_class[prediction_provider_type]
+    # Get the provider class
+    prediction_provider_class = get_provider_class(prediction_provider_type)
+
+    # Get the provider class
+    prediction_provider_class = get_provider_class(prediction_provider_type)
     if not hasattr(prediction_provider_class, "prediction_modalities"):
         return None
 
